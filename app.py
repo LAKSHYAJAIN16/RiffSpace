@@ -225,13 +225,14 @@ elif demo_type == "🎵 Song Upload":
         with col1:
             method = st.selectbox(
                 "Embedding Method",
-                ["statistical", "bag_of_frames", "openl3"],
+                ["statistical", "bag_of_frames", "openl3", "ensemble"],
                 format_func=lambda x: {
                     "statistical": "Statistical (Fast - MFCCs/Chroma)",
                     "bag_of_frames": "Histogram (Order-invariant)",
-                    "openl3": "OpenL3 (Pre-trained Neural Network)"
+                    "openl3": "OpenL3 (Pre-trained Neural Network)",
+                    "ensemble": "Ensemble (ALL METHODS COMBINED)"
                 }[x],
-                help="Statistical: Fast aggregation. Bag of Frames: Histogram-based. OpenL3: Neural network (requires openl3)."
+                help="Statistical: Fast aggregation. Bag of Frames: Histogram. OpenL3: Neural network. Ensemble: Concatenates all methods!"
             )
         
         with col2:
@@ -256,16 +257,106 @@ elif demo_type == "🎵 Song Upload":
                     # Load song
                     song = load_song(tmp_path, title=uploaded_file.name)
                     
-                    # Create vectorizer
-                    vectorizer = SongVectorizer(method=method, dimension=dimension)
+                    # Handle ensemble method
+                    if method == "ensemble":
+                        st.info("🎯 Ensemble mode: Combining all embedding methods...")
+                        
+                        embeddings_list = []
+                        methods_used = []
+                        
+                        # 1. Statistical
+                        try:
+                            vec_stat = SongVectorizer(method="statistical", dimension=dimension // 3)
+                            emb_stat = vec_stat.embed(song)
+                            embeddings_list.append(emb_stat.vector)
+                            methods_used.append("statistical")
+                            st.success("✓ Statistical embedding generated")
+                        except Exception as e:
+                            st.warning(f"Statistical failed: {e}")
+                        
+                        # 2. Bag of frames
+                        try:
+                            vec_bag = SongVectorizer(method="bag_of_frames", dimension=dimension // 3)
+                            vec_bag.fit([song])
+                            emb_bag = vec_bag.embed(song)
+                            embeddings_list.append(emb_bag.vector)
+                            methods_used.append("bag_of_frames")
+                            st.success("✓ Bag of frames embedding generated")
+                        except Exception as e:
+                            st.warning(f"Bag of frames failed: {e}")
+                        
+                        # 3. OpenL3 (optional)
+                        try:
+                            vec_openl3 = SongVectorizer(method="openl3", dimension=dimension // 3)
+                            emb_openl3 = vec_openl3.embed(song)
+                            embeddings_list.append(emb_openl3.vector)
+                            methods_used.append("openl3")
+                            st.success("✓ OpenL3 embedding generated")
+                        except ImportError:
+                            st.info("⚠️ OpenL3 not installed (skipping). Install with: pip install openl3")
+                        except Exception as e:
+                            st.warning(f"OpenL3 failed: {e}")
+                        
+                        # Concatenate all embeddings
+                        if len(embeddings_list) > 0:
+                            # Ensure all embeddings are same length
+                            target_dim = dimension // len(embeddings_list)
+                            normalized_embeddings = []
+                            
+                            for emb in embeddings_list:
+                                if len(emb) < target_dim:
+                                    emb = np.pad(emb, (0, target_dim - len(emb)))
+                                else:
+                                    emb = emb[:target_dim]
+                                normalized_embeddings.append(emb)
+                            
+                            # Concatenate
+                            combined_vector = np.concatenate(normalized_embeddings)
+                            
+                            # Pad to exact dimension if needed
+                            if len(combined_vector) < dimension:
+                                combined_vector = np.pad(combined_vector, (0, dimension - len(combined_vector)))
+                            else:
+                                combined_vector = combined_vector[:dimension]
+                            
+                            # Normalize
+                            norm = np.linalg.norm(combined_vector)
+                            if norm > 0:
+                                combined_vector = combined_vector / norm
+                            
+                            # Create ensemble embedding
+                            from dataclasses import dataclass
+                            @dataclass
+                            class EnsembleEmbedding:
+                                song: object
+                                vector: np.ndarray
+                                metadata: dict
+                                embedding_method: str
+                                methods_used: list
+                            
+                            embedding = EnsembleEmbedding(
+                                song=song,
+                                vector=combined_vector,
+                                metadata=song.metadata,
+                                embedding_method=f"ensemble ({'+'.join(methods_used)})",
+                                methods_used=methods_used
+                            )
+                            
+                            st.success(f"✓ Ensemble embedding created from {len(methods_used)} methods!")
+                        else:
+                            raise Exception("No embedding methods succeeded")
                     
-                    # Special handling for bag_of_frames
-                    if method == "bag_of_frames":
-                        st.info("Bag of frames method requires training a codebook. Using the song itself for training...")
-                        vectorizer.fit([song])
-                    
-                    # Generate embedding
-                    embedding = vectorizer.embed(song)
+                    else:
+                        # Single method
+                        vectorizer = SongVectorizer(method=method, dimension=dimension)
+                        
+                        # Special handling for bag_of_frames
+                        if method == "bag_of_frames":
+                            st.info("Bag of frames method requires training a codebook. Using the song itself for training...")
+                            vectorizer.fit([song])
+                        
+                        # Generate embedding
+                        embedding = vectorizer.embed(song)
                     
                     # Clean up temp file
                     os.unlink(tmp_path)
@@ -288,6 +379,8 @@ elif demo_type == "🎵 Song Upload":
                             pass
                 except Exception as e:
                     st.error(f"Error processing audio: {e}")
+                    import traceback
+                    st.error(traceback.format_exc())
                     if 'tmp_path' in locals():
                         try:
                             os.unlink(tmp_path)
