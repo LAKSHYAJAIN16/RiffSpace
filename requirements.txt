@@ -11,7 +11,7 @@ pretty_midi>=0.2.10
 
 # Distance metrics and alignment
 dtaidistance>=2.3.0  # Dynamic Time Warping
-POT>=0.9.0  # Optimal Transport
+POT>=0.9.0  # Optimal Transport (optional)
 
 # Machine learning
 scikit-learn>=1.3.0
@@ -31,6 +31,15 @@ pytest>=7.4.0
 black>=23.0.0
 flake8>=6.0.0
 
+# Vector databases (install at least one)
+# faiss-cpu>=1.7.4          # Local vector search (recommended)
+# pinecone-client>=2.2.0    # Managed vector DB
+# chromadb>=0.4.0           # Embedded vector DB
+# weaviate-client>=3.24.0   # Enterprise vector DB
+
 # Optional: Deep learning for learned metrics
 # torch>=2.0.0
 # tensorflow>=2.13.0
+
+# Optional: Graph analysis for influence networks
+# networkx>=3.1
