@@ -109,7 +109,8 @@ def main():
         for i, (idx, distance, metadata) in enumerate(results, 1):
             song = metadata.get('song', metadata.get('id', f'Riff {idx}'))
             year = metadata.get('year', 'N/A')
-            print(f"   {i}. {song:30s} (year: {year}, distance: {distance:.3f})")
+            song_str = str(song)[:30]  # Convert to string and truncate
+            print(f"   {i}. {song_str:30s} (year: {year}, distance: {distance:.3f})")
         
         print()
         
