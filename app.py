@@ -225,8 +225,13 @@ elif demo_type == "🎵 Song Upload":
         with col1:
             method = st.selectbox(
                 "Embedding Method",
-                ["statistical", "histogram", "distance_based"],
-                help="Statistical: Fast, MFCCs/chroma aggregation. Histogram: Order-invariant. Distance-based: Most accurate."
+                ["statistical", "bag_of_frames", "openl3"],
+                format_func=lambda x: {
+                    "statistical": "Statistical (Fast - MFCCs/Chroma)",
+                    "bag_of_frames": "Histogram (Order-invariant)",
+                    "openl3": "OpenL3 (Pre-trained Neural Network)"
+                }[x],
+                help="Statistical: Fast aggregation. Bag of Frames: Histogram-based. OpenL3: Neural network (requires openl3)."
             )
         
         with col2:
@@ -254,6 +259,11 @@ elif demo_type == "🎵 Song Upload":
                     # Create vectorizer
                     vectorizer = SongVectorizer(method=method, dimension=dimension)
                     
+                    # Special handling for bag_of_frames
+                    if method == "bag_of_frames":
+                        st.info("Bag of frames method requires training a codebook. Using the song itself for training...")
+                        vectorizer.fit([song])
+                    
                     # Generate embedding
                     embedding = vectorizer.embed(song)
                     
@@ -266,6 +276,16 @@ elif demo_type == "🎵 Song Upload":
                     
                     st.success("✓ Embedding generated successfully!")
                     
+                except ImportError as e:
+                    if "openl3" in str(e):
+                        st.error("OpenL3 method requires installation: `pip install openl3`")
+                    else:
+                        st.error(f"Import error: {e}")
+                    if 'tmp_path' in locals():
+                        try:
+                            os.unlink(tmp_path)
+                        except:
+                            pass
                 except Exception as e:
                     st.error(f"Error processing audio: {e}")
                     if 'tmp_path' in locals():
