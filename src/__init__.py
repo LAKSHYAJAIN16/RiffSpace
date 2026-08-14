@@ -1,11 +1,11 @@
 """
 RiffSpace: Musical Structure Retrieval via Vector Embeddings
 
-A mathematical framework for representing, indexing, and retrieving musical riffs
-in vector databases.
+A mathematical framework for representing, indexing, and retrieving musical content
+(riffs and full songs) in vector databases.
 """
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 __author__ = "RiffSpace Research"
 
 from .riff import Riff, RiffNote, create_example_riff
@@ -19,6 +19,8 @@ from .vectordb import (
     VectorDBAdapter,
     create_riff_vector_index
 )
+from .song import Song, SongSegment, load_song, load_songs_from_directory
+from .song_vectorizer import SongVectorizer, SongEmbedding, create_song_vector_index
 from .pipeline import (
     extract_riff_from_midi,
     extract_riff_from_audio,
@@ -28,10 +30,15 @@ from .pipeline import (
 )
 
 __all__ = [
-    # Core
+    # Core - Riffs
     "Riff",
     "RiffNote",
     "create_example_riff",
+    # Core - Songs
+    "Song",
+    "SongSegment",
+    "load_song",
+    "load_songs_from_directory",
     # Transformations
     "TransformGroup",
     "Transformation",
@@ -46,11 +53,16 @@ __all__ = [
     "NoveltyAnalyzer",
     "NoveltyScore",
     "quantify_derivative",
-    # Vector DB
+    # Vector DB - Riffs
     "RiffVectorizer",
     "RiffEmbedding",
-    "VectorDBAdapter",
     "create_riff_vector_index",
+    # Vector DB - Songs
+    "SongVectorizer",
+    "SongEmbedding",
+    "create_song_vector_index",
+    # Shared
+    "VectorDBAdapter",
     # Pipeline
     "extract_riff_from_midi",
     "extract_riff_from_audio",
