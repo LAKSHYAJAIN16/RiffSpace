@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-RiffSpace Web UI - Minimalistic music vector search demo.
+RiffSpace Web UI - Music vector search demo.
 
 Run: streamlit run app.py
 """
@@ -18,6 +18,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from src import (
     Riff, create_example_riff,
     RiffVectorizer, create_riff_vector_index,
+    Song, SongVectorizer,
     create_synthetic_dataset
 )
 
@@ -28,377 +29,441 @@ st.set_page_config(
     layout="wide"
 )
 
-# Minimalistic CSS
-st.markdown("""
-<style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-    
-    html, body, [class*="css"] {
-        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-    }
-    
-    .stApp {
-        background: #FFFFFF;
-    }
-    
-    .main .block-container {
-        padding-top: 3rem;
-        max-width: 1200px;
-    }
-    
-    h1 {
-        color: #000000;
-        font-weight: 700;
-        font-size: 2.5rem !important;
-        letter-spacing: -0.02em;
-    }
-    
-    h2 {
-        color: #000000;
-        font-weight: 600;
-        font-size: 1.75rem !important;
-        margin-top: 2.5rem;
-    }
-    
-    h3 {
-        color: #333333;
-        font-weight: 600;
-        font-size: 1.25rem !important;
-    }
-    
-    [data-testid="stSidebar"] {
-        background: #F8F9FA;
-        border-right: 1px solid #E9ECEF;
-    }
-    
-    .stButton > button {
-        background: #000000;
-        color: white;
-        border: none;
-        border-radius: 6px;
-        padding: 0.6rem 1.5rem;
-        font-weight: 500;
-        transition: all 0.2s;
-    }
-    
-    .stButton > button:hover {
-        background: #333333;
-    }
-    
-    [data-testid="stMetricValue"] {
-        font-size: 1.8rem;
-        font-weight: 600;
-        color: #000000;
-    }
-    
-    [data-testid="stMetricLabel"] {
-        color: #666666;
-        font-size: 0.85rem;
-        font-weight: 500;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-    }
-    
-    hr {
-        border: none;
-        border-top: 1px solid #E9ECEF;
-        margin: 2rem 0;
-    }
-</style>
-""", unsafe_allow_html=True)
-
-# Header
-st.markdown("<h1 style='text-align: center;'>RiffSpace</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center; color: #666; font-size: 1.1rem;'>Music vector search engine</p>", unsafe_allow_html=True)
+# Title
+st.title("🎸 RiffSpace")
+st.markdown("**Music Vector Search Engine**")
 
 # Sidebar
-with st.sidebar:
-    st.markdown("### Navigation")
-    demo_type = st.radio(
-        "nav",
-        ["Riff Search", "Song Analysis", "Visualization", "About"],
-        label_visibility="collapsed"
-    )
-    
-    st.markdown("---")
-    st.markdown("### Stats")
-    st.markdown("**DB:** FAISS  \n**Dim:** 128/512  \n**Speed:** <1ms")
+st.sidebar.header("Navigation")
+demo_type = st.sidebar.radio(
+    "Choose Demo",
+    ["🔍 Riff Search", "🎵 Song Upload", "📊 Visualization", "ℹ️ About"]
+)
 
-# Riff Search
-if demo_type == "Riff Search":
-    st.markdown("## Riff Search")
+# ============================================================================
+# RIFF SEARCH
+# ============================================================================
+
+if demo_type == "🔍 Riff Search":
+    st.header("Riff Search")
     st.markdown("Search for similar guitar riffs using vector embeddings")
     
+    # Initialize database
     if 'riff_db' not in st.session_state:
-        with st.spinner("Building database..."):
-            progress_bar = st.progress(0)
-            
-            progress_bar.progress(33)
+        with st.spinner("Building riff database..."):
             example_riffs = [
                 create_example_riff("smoke_on_the_water"),
                 create_example_riff("iron_man"),
                 create_example_riff("seven_nation_army")
             ]
-            
-            progress_bar.progress(66)
             synthetic = create_synthetic_dataset(n_riffs=50, year_range=(1960, 2020))
             all_riffs = example_riffs + synthetic
             
             db, vectorizer = create_riff_vector_index(
-                all_riffs, method='statistical',
-                backend='faiss', dimension=128
+                all_riffs,
+                method='statistical',
+                backend='faiss',
+                dimension=128
             )
-            progress_bar.progress(100)
             
             st.session_state.riff_db = db
             st.session_state.riff_vectorizer = vectorizer
             st.session_state.riffs = all_riffs
-        st.success("Database ready (53 riffs)")
+            
+        st.success("✓ Database ready with 53 riffs!")
     
-    st.markdown("### Choose Riff")
+    # Query section
+    st.subheader("1. Create or Select a Riff")
     
-    col1, col2 = st.columns(2, gap="large")
+    col1, col2 = st.columns(2)
     
     with col1:
-        st.markdown("**Famous Riffs**")
+        st.markdown("**Use Famous Riff:**")
         famous_riff = st.selectbox(
-            "riff",
-            ["Smoke on the Water", "Iron Man", "Seven Nation Army"],
-            label_visibility="collapsed"
+            "Select example",
+            ["Smoke on the Water", "Iron Man", "Seven Nation Army"]
         )
         
-        if st.button("Load", use_container_width=True):
+        if st.button("Load Example Riff"):
             riff_map = {
                 "Smoke on the Water": "smoke_on_the_water",
                 "Iron Man": "iron_man",
                 "Seven Nation Army": "seven_nation_army"
             }
             st.session_state.query_riff = create_example_riff(riff_map[famous_riff])
-            st.success(f"Loaded: {famous_riff}")
+            st.success(f"✓ Loaded: {famous_riff}")
     
     with col2:
-        st.markdown("**Custom Riff**")
+        st.markdown("**Or Create Custom Riff:**")
+        
         intervals_str = st.text_input(
-            "Intervals", "0, 2, 2, -1, 3",
-            label_visibility="collapsed",
-            placeholder="Pitch intervals (e.g. 0, 2, 2, -1, 3)"
+            "Pitch intervals (comma-separated)",
+            "0, 2, 2, -1, 3",
+            help="Semitone intervals: 0=start, 2=up 2 semitones, -1=down 1, etc."
         )
         
-        if st.button("Create", use_container_width=True):
+        durations_str = st.text_input(
+            "Durations (comma-separated)",
+            "0.5, 0.5, 0.5, 0.5, 1.0",
+            help="Note durations in beats"
+        )
+        
+        if st.button("Create Custom Riff"):
             try:
                 intervals = [float(x.strip()) for x in intervals_str.split(',')]
-                durations = [0.5] * len(intervals)
+                durations = [float(x.strip()) for x in durations_str.split(',')]
+                
                 st.session_state.query_riff = Riff(
                     pitch_intervals=intervals,
                     durations=durations,
-                    metadata={'name': 'Custom'}
+                    metadata={'name': 'Custom Riff'}
                 )
-                st.success("Created")
+                st.success("✓ Custom riff created!")
             except Exception as e:
                 st.error(f"Error: {e}")
     
+    # Display query riff
     if 'query_riff' in st.session_state:
         st.markdown("---")
-        st.markdown("### Query Riff")
+        st.subheader("2. Your Query Riff")
         
         query_riff = st.session_state.query_riff
         
-        col1, col2, col3, col4 = st.columns(4)
-        col1.metric("Notes", len(query_riff))
-        col2.metric("Duration", f"{query_riff.total_duration:.1f}b")
-        col3.metric("Tempo", query_riff.tempo)
-        col4.metric("Unique", len(set(query_riff.get_interval_sequence())))
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("Length", f"{len(query_riff)} notes")
+        with col2:
+            st.metric("Duration", f"{query_riff.total_duration:.2f} beats")
+        with col3:
+            st.metric("Tempo", f"{query_riff.tempo} BPM")
         
-        intervals = query_riff.get_interval_sequence()
-        fig = go.Figure()
-        fig.add_trace(go.Scatter(
-            x=list(range(len(intervals))), y=intervals,
-            mode='lines+markers',
-            marker=dict(size=8, color='#000'),
-            line=dict(color='#000', width=2)
-        ))
-        fig.update_layout(
-            xaxis_title="Position", yaxis_title="Interval",
-            height=200, margin=dict(l=20, r=20, t=20, b=20),
-            plot_bgcolor='white', paper_bgcolor='white',
-            font=dict(family='Inter', size=11)
-        )
-        st.plotly_chart(fig, use_container_width=True)
+        # Show intervals
+        st.markdown("**Intervals:** " + " → ".join([str(int(i)) for i in query_riff.get_interval_sequence()]))
     
+    # Search section
     if 'query_riff' in st.session_state:
         st.markdown("---")
-        st.markdown("### Search")
+        st.subheader("3. Search for Similar Riffs")
         
-        col1, col2 = st.columns([3, 1])
-        with col1:
-            k = st.slider("Results", 1, 20, 10)
-        with col2:
-            st.markdown("<br>", unsafe_allow_html=True)
-            search = st.button("Search", type="primary", use_container_width=True)
+        k = st.slider("Number of results", 1, 20, 10)
         
-        if search:
+        if st.button("🔍 Search", type="primary"):
             with st.spinner("Searching..."):
-                query_emb = st.session_state.riff_vectorizer.embed(st.session_state.query_riff)
-                results = st.session_state.riff_db.search(query_emb.vector, k=k)
+                query_riff = st.session_state.query_riff
+                vectorizer = st.session_state.riff_vectorizer
+                db = st.session_state.riff_db
+                
+                # Embed query
+                query_embedding = vectorizer.embed(query_riff)
+                
+                # Search
+                results = db.search(query_embedding.vector, k=k)
+                
                 st.session_state.search_results = results
         
+        # Display results
         if 'search_results' in st.session_state:
             st.markdown("---")
-            st.markdown("### Results")
+            st.subheader("4. Results")
             
-            data = []
-            for i, (idx, dist, meta) in enumerate(st.session_state.search_results, 1):
-                data.append({
-                    '#': i,
-                    'Song': str(meta.get('song', f'Riff {idx}'))[:40],
-                    'Artist': meta.get('artist', 'Unknown'),
-                    'Year': meta.get('year', 'N/A'),
-                    'Distance': f"{dist:.2f}",
-                    'Match': f"{(1/(1+dist)):.1%}"
+            results = st.session_state.search_results
+            
+            st.markdown(f"**Found {len(results)} similar riffs:**")
+            
+            # Table
+            result_data = []
+            for i, (idx, distance, metadata) in enumerate(results, 1):
+                song = metadata.get('song', metadata.get('id', f'Riff {idx}'))
+                year = metadata.get('year', 'N/A')
+                artist = metadata.get('artist', 'N/A')
+                similarity = 1 / (1 + distance)
+                
+                result_data.append({
+                    'Rank': i,
+                    'Song': song,
+                    'Artist': artist,
+                    'Year': year,
+                    'Distance': f"{distance:.2f}",
+                    'Similarity': f"{similarity:.1%}"
                 })
             
-            st.dataframe(pd.DataFrame(data), use_container_width=True, hide_index=True)
+            st.dataframe(result_data, use_container_width=True)
 
-# Song Analysis
-elif demo_type == "Song Analysis":
-    st.markdown("## Song Analysis")
-    st.markdown("How audio files become searchable vectors")
+# ============================================================================
+# SONG UPLOAD
+# ============================================================================
+
+elif demo_type == "🎵 Song Upload":
+    st.header("Song Upload & Vectorization")
+    st.markdown("Upload an audio file and convert it to a vector embedding")
     
-    st.info("Demo mode: showing feature pipeline")
+    st.subheader("Upload Audio File")
     
-    st.markdown("### Features")
+    uploaded_file = st.file_uploader(
+        "Choose an audio file",
+        type=['mp3', 'wav', 'ogg', 'flac', 'm4a'],
+        help="Supported formats: MP3, WAV, OGG, FLAC, M4A"
+    )
     
-    col1, col2 = st.columns(2)
-    with col1:
-        st.markdown("""
-        **Extracted**
-        - Tempo (BPM)
-        - MFCCs (timbre)
-        - Chroma (harmony)
-        - Spectral contrast
-        - Tonnetz (tonal)
-        """)
-    with col2:
-        st.markdown("""
-        **Aggregated**
-        - Mean & std
-        - Min & max
-        - Quartiles
+    if uploaded_file is not None:
+        st.success(f"✓ Uploaded: {uploaded_file.name}")
         
-        → 512 dimensions
-        """)
-    
-    st.markdown("### Dimensions")
-    
-    fig = go.Figure(data=[go.Bar(
-        x=['Global', 'MFCC', 'Chroma', 'Spectral', 'Tonnetz', 'Pad'],
-        y=[6, 100, 48, 21, 12, 325],
-        marker_color='#000'
-    )])
-    fig.update_layout(
-        height=250, margin=dict(l=20, r=20, t=20, b=20),
-        plot_bgcolor='white', paper_bgcolor='white',
-        font=dict(family='Inter', size=11)
-    )
-    st.plotly_chart(fig, use_container_width=True)
-    
-    st.markdown("### Example")
-    col1, col2, col3, col4, col5 = st.columns(5)
-    col1.metric("Tempo", "72", "BPM")
-    col2.metric("Duration", "5:54")
-    col3.metric("Energy", "0.43")
-    col4.metric("Spectral", "2.8k", "Hz")
-    col5.metric("ZCR", "0.09")
+        # Show file details
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("Filename", uploaded_file.name)
+        with col2:
+            st.metric("Size", f"{uploaded_file.size / 1024:.1f} KB")
+        with col3:
+            st.metric("Type", uploaded_file.type)
+        
+        st.markdown("---")
+        st.subheader("Vectorization Options")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            method = st.selectbox(
+                "Embedding Method",
+                ["statistical", "histogram", "distance_based"],
+                help="Statistical: Fast, MFCCs/chroma aggregation. Histogram: Order-invariant. Distance-based: Most accurate."
+            )
+        
+        with col2:
+            dimension = st.selectbox(
+                "Vector Dimension",
+                [128, 256, 512],
+                index=2,
+                help="Higher dimensions = more accuracy, more storage"
+            )
+        
+        if st.button("🚀 Generate Embedding", type="primary"):
+            with st.spinner("Processing audio and generating embedding..."):
+                try:
+                    # Save uploaded file temporarily
+                    import tempfile
+                    import os
+                    
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=Path(uploaded_file.name).suffix) as tmp_file:
+                        tmp_file.write(uploaded_file.getvalue())
+                        tmp_path = tmp_file.name
+                    
+                    # Load song
+                    song = Song.from_audio_file(tmp_path)
+                    
+                    # Create vectorizer
+                    vectorizer = SongVectorizer(method=method, dimension=dimension)
+                    
+                    # Generate embedding
+                    embedding = vectorizer.embed(song)
+                    
+                    # Clean up temp file
+                    os.unlink(tmp_path)
+                    
+                    # Store in session state
+                    st.session_state.song = song
+                    st.session_state.song_embedding = embedding
+                    
+                    st.success("✓ Embedding generated successfully!")
+                    
+                except Exception as e:
+                    st.error(f"Error processing audio: {e}")
+                    if 'tmp_path' in locals():
+                        try:
+                            os.unlink(tmp_path)
+                        except:
+                            pass
+        
+        # Display results
+        if 'song_embedding' in st.session_state:
+            st.markdown("---")
+            st.subheader("Embedding Results")
+            
+            song = st.session_state.song
+            embedding = st.session_state.song_embedding
+            
+            # Audio features
+            st.markdown("**Audio Features:**")
+            col1, col2, col3, col4 = st.columns(4)
+            
+            with col1:
+                st.metric("Duration", f"{song.duration:.1f}s")
+            with col2:
+                st.metric("Sample Rate", f"{song.sample_rate} Hz")
+            with col3:
+                st.metric("Tempo", f"{song.tempo:.0f} BPM" if hasattr(song, 'tempo') else "N/A")
+            with col4:
+                st.metric("Channels", "Mono" if len(song.audio.shape) == 1 else "Stereo")
+            
+            # Embedding info
+            st.markdown("**Embedding:**")
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                st.metric("Method", embedding.method)
+            with col2:
+                st.metric("Dimension", len(embedding.vector))
+            with col3:
+                st.metric("Norm", f"{np.linalg.norm(embedding.vector):.2f}")
+            
+            # Visualization
+            st.markdown("**Vector Visualization (first 100 dimensions):**")
+            
+            fig = go.Figure()
+            fig.add_trace(go.Scatter(
+                y=embedding.vector[:100],
+                mode='lines',
+                line=dict(color='blue', width=1)
+            ))
+            fig.update_layout(
+                xaxis_title="Dimension",
+                yaxis_title="Value",
+                height=300,
+                margin=dict(l=20, r=20, t=20, b=20)
+            )
+            st.plotly_chart(fig, use_container_width=True)
+            
+            # Download option
+            st.markdown("**Download Embedding:**")
+            
+            # Create download data
+            embedding_data = {
+                'filename': uploaded_file.name,
+                'method': embedding.method,
+                'dimension': len(embedding.vector),
+                'vector': embedding.vector.tolist()
+            }
+            
+            import json
+            embedding_json = json.dumps(embedding_data, indent=2)
+            
+            st.download_button(
+                label="📥 Download as JSON",
+                data=embedding_json,
+                file_name=f"{Path(uploaded_file.name).stem}_embedding.json",
+                mime="application/json"
+            )
+            
+            # Stats
+            st.markdown("**Vector Statistics:**")
+            stats_df = pd.DataFrame({
+                'Statistic': ['Mean', 'Std Dev', 'Min', 'Max', 'Median'],
+                'Value': [
+                    f"{np.mean(embedding.vector):.4f}",
+                    f"{np.std(embedding.vector):.4f}",
+                    f"{np.min(embedding.vector):.4f}",
+                    f"{np.max(embedding.vector):.4f}",
+                    f"{np.median(embedding.vector):.4f}"
+                ]
+            })
+            st.dataframe(stats_df, use_container_width=True, hide_index=True)
 
-# Visualization
-elif demo_type == "Visualization":
-    st.markdown("## Visualization")
-    st.markdown("Riffs in vector space")
+# ============================================================================
+# VISUALIZATION
+# ============================================================================
+
+elif demo_type == "📊 Visualization":
+    st.header("Embedding Visualization")
+    st.markdown("Visualize how riffs are embedded in vector space")
     
-    with st.spinner("Computing..."):
-        riffs = [
-            create_example_riff("smoke_on_the_water"),
-            create_example_riff("iron_man"),
-            create_example_riff("seven_nation_army")
-        ]
-        names = ["Smoke on the Water", "Iron Man", "Seven Nation Army"]
-        vectorizer = RiffVectorizer(method='statistical', dimension=128)
-        embeddings = [vectorizer.embed(r).vector for r in riffs]
+    # Generate embeddings for famous riffs
+    famous_names = ["Smoke on the Water", "Iron Man", "Seven Nation Army"]
+    famous_riffs = [
+        create_example_riff("smoke_on_the_water"),
+        create_example_riff("iron_man"),
+        create_example_riff("seven_nation_army")
+    ]
     
-    st.markdown("### Embeddings (30 dims)")
+    vectorizer = RiffVectorizer(method='statistical', dimension=128)
+    embeddings = [vectorizer.embed(riff).vector for riff in famous_riffs]
     
-    fig = go.Figure()
-    for name, emb in zip(names, embeddings):
-        fig.add_trace(go.Scatter(
-            x=list(range(30)), y=emb[:30],
-            mode='lines', name=name, line=dict(width=2)
-        ))
-    fig.update_layout(
-        height=300, margin=dict(l=20, r=20, t=20, b=20),
-        plot_bgcolor='white', paper_bgcolor='white',
-        font=dict(family='Inter', size=11)
-    )
-    st.plotly_chart(fig, use_container_width=True)
+    # Show embedding vectors
+    st.subheader("Embedding Vectors (first 20 dimensions)")
     
-    st.markdown("### Distance Matrix")
+    df_data = {}
+    for name, emb in zip(famous_names, embeddings):
+        df_data[name] = emb[:20]
+    
+    df = pd.DataFrame(df_data)
+    st.line_chart(df)
+    
+    # Distance matrix
+    st.subheader("Distance Matrix")
+    
+    st.markdown("Pairwise distances between famous riffs:")
     
     from sklearn.metrics.pairwise import euclidean_distances
+    
     distances = euclidean_distances(embeddings)
     
-    fig = go.Figure(data=go.Heatmap(
-        z=distances, x=names, y=names,
-        colorscale='Greys',
-        text=np.round(distances, 2),
-        texttemplate='%{text}'
-    ))
-    fig.update_layout(
-        height=300, margin=dict(l=20, r=20, t=20, b=20),
-        font=dict(family='Inter', size=11)
+    dist_df = pd.DataFrame(
+        distances,
+        columns=famous_names,
+        index=famous_names
     )
-    st.plotly_chart(fig, use_container_width=True)
     
-    st.markdown("Lower = more similar")
+    st.dataframe(dist_df.style.background_gradient(cmap='RdYlGn_r'), use_container_width=True)
+    
+    # Interpretation
+    st.info("""
+    **Interpretation**: Lower distance = more similar
+    
+    - Smoke on the Water ↔ Iron Man: Similar classic rock riffs
+    - Seven Nation Army: More recent, slightly different style
+    """)
 
-# About
-elif demo_type == "About":
-    st.markdown("## About")
-    
-    st.markdown("### Problem")
-    st.markdown("Music is variable-length, but vector DBs need fixed dimensions")
-    
-    col1, col2, col3 = st.columns(3)
-    col1.markdown("**Padding**  \nWastes space")
-    col2.markdown("**Truncation**  \nLoses data")
-    col3.markdown("**Raw audio**  \nToo large")
-    
-    st.markdown("---")
-    st.markdown("### Solution")
-    
-    col1, col2, col3 = st.columns(3)
-    col1.markdown("**Intervals**  \nRelative pitch")
-    col2.markdown("**Equivalence**  \nTransformations")
-    col3.markdown("**Projection**  \nFixed dims")
-    
-    st.markdown("---")
-    st.markdown("### Performance")
-    
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Riff", "0.1ms")
-    col2.metric("Song", "2-5s")
-    col3.metric("Search", "<1ms")
-    col4.metric("Accuracy", "0.94")
-    
-    st.markdown("---")
-    st.markdown("### Applications")
+# ============================================================================
+# ABOUT
+# ============================================================================
+
+elif demo_type == "ℹ️ About":
+    st.header("About RiffSpace")
     
     st.markdown("""
-    - Music search
-    - Plagiarism detection
-    - Recommendations
-    - Cover detection
-    - Copyright analysis
+    ## The Impossible Problem
+    
+    Music is **variable-length** (songs: 3-5 minutes, riffs: 4-20 notes), but vector databases need **fixed dimensions**.
+    
+    Traditional approaches fail:
+    - ❌ Padding → wastes space, breaks similarity
+    - ❌ Truncation → loses information
+    - ❌ Raw audio → billions of dimensions
+    
+    ## The Solution
+    
+    **RiffSpace** uses mathematical embeddings via:
+    
+    1. **Interval representation** → transposition invariance
+    2. **Quotient space metric** → transformation invariance
+    3. **Distance-preserving projections** → fixed dimensions
+    
+    ### Performance
+    
+    - **Riff embedding**: 0.1ms
+    - **Song embedding**: 2-5s
+    - **Search**: <1ms for 10k items
+    - **Metric preservation**: ρ = 0.78-0.94
+    
+    ### Applications
+    
+    ✅ Semantic music search  
+    ✅ Plagiarism detection  
+    ✅ Music recommendations  
+    ✅ Cover/remix detection  
+    ✅ Copyright analysis  
+    
+    ### Technology Stack
+    
+    - **Backend**: Python, NumPy, SciPy, librosa
+    - **Vector DBs**: FAISS, Pinecone, Chroma, Weaviate
+    - **UI**: Streamlit
+    - **Tests**: pytest (60+ unit tests)
     """)
+    
+    st.markdown("---")
+    
+    st.success("**The impossible is now possible.** Music in vector databases. 🎸🎵")
 
 # Footer
 st.markdown("---")
-st.markdown("<div style='text-align:center;color:#999;font-size:0.85rem'>RiffSpace v0.3.0</div>", unsafe_allow_html=True)
+st.markdown("**RiffSpace v0.3.0** | Built with ❤️ and 🎸")
