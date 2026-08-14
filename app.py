@@ -18,7 +18,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from src import (
     Riff, create_example_riff,
     RiffVectorizer, create_riff_vector_index,
-    Song, SongVectorizer,
+    Song, SongVectorizer, load_song,
     create_synthetic_dataset
 )
 
@@ -249,7 +249,7 @@ elif demo_type == "🎵 Song Upload":
                         tmp_path = tmp_file.name
                     
                     # Load song
-                    song = Song.from_audio_file(tmp_path)
+                    song = load_song(tmp_path, title=uploaded_file.name)
                     
                     # Create vectorizer
                     vectorizer = SongVectorizer(method=method, dimension=dimension)
@@ -289,18 +289,20 @@ elif demo_type == "🎵 Song Upload":
             with col1:
                 st.metric("Duration", f"{song.duration:.1f}s")
             with col2:
-                st.metric("Sample Rate", f"{song.sample_rate} Hz")
+                st.metric("Sample Rate", f"{song.sr} Hz")
             with col3:
-                st.metric("Tempo", f"{song.tempo:.0f} BPM" if hasattr(song, 'tempo') else "N/A")
+                tempo = song._tempo if song._tempo else "Computing..."
+                st.metric("Tempo", f"{tempo:.0f} BPM" if isinstance(tempo, (int, float)) else tempo)
             with col4:
-                st.metric("Channels", "Mono" if len(song.audio.shape) == 1 else "Stereo")
+                channels = "Mono" if len(song.audio.shape) == 1 else "Stereo"
+                st.metric("Channels", channels)
             
             # Embedding info
             st.markdown("**Embedding:**")
             col1, col2, col3 = st.columns(3)
             
             with col1:
-                st.metric("Method", embedding.method)
+                st.metric("Method", embedding.embedding_method)
             with col2:
                 st.metric("Dimension", len(embedding.vector))
             with col3:
@@ -329,7 +331,7 @@ elif demo_type == "🎵 Song Upload":
             # Create download data
             embedding_data = {
                 'filename': uploaded_file.name,
-                'method': embedding.method,
+                'method': embedding.embedding_method,
                 'dimension': len(embedding.vector),
                 'vector': embedding.vector.tolist()
             }
